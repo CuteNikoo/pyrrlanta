@@ -37,6 +37,7 @@ public final class TribeCommand {
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("tribe")
+                .executes(ctx -> gui(ctx.getSource()))
                 .then(Commands.literal("create")
                         .then(Commands.argument("name", StringArgumentType.word())
                                 .executes(ctx -> create(ctx.getSource(), StringArgumentType.getString(ctx, "name")))))
@@ -108,6 +109,12 @@ public final class TribeCommand {
                         .then(Commands.literal("protect")
                                 .then(Commands.argument("value", BoolArgumentType.bool())
                                         .executes(ctx -> toggle(ctx.getSource(), "Protection", BoolArgumentType.getBool(ctx, "value"), Tribe::setProtectionEnabled))))
+                        .then(Commands.literal("chests")
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> toggle(ctx.getSource(), "Chest/container protection", BoolArgumentType.getBool(ctx, "value"), Tribe::setChestProtectionEnabled))))
+                        .then(Commands.literal("taxes")
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> toggle(ctx.getSource(), "Taxes", BoolArgumentType.getBool(ctx, "value"), Tribe::setTaxesEnabled))))
                         .then(Commands.literal("pvp")
                                 .then(Commands.argument("value", BoolArgumentType.bool())
                                         .executes(ctx -> toggle(ctx.getSource(), "PvP", BoolArgumentType.getBool(ctx, "value"), Tribe::setPvpEnabled))))
@@ -157,22 +164,30 @@ public final class TribeCommand {
 
     private static int create(CommandSourceStack source, String name) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        TribeSavedData data = data(source);
+        CreateResult result = tryCreate(player, data(source), name);
+        if (result.success()) {
+            source.sendSuccess(() -> Component.literal(result.message()), true);
+            return 1;
+        }
+        source.sendFailure(Component.literal(result.message()));
+        return 0;
+    }
+
+    private record CreateResult(boolean success, String message) {
+    }
+
+    private static CreateResult tryCreate(ServerPlayer player, TribeSavedData data, String name) {
         if (data.getTribeOf(player.getUUID()) != null) {
-            source.sendFailure(Component.literal("You are already in a tribe."));
-            return 0;
+            return new CreateResult(false, "You are already in a tribe.");
         }
         if (!name.matches("[A-Za-z0-9_]{3,16}")) {
-            source.sendFailure(Component.literal("Tribe names must be 3-16 letters, numbers, or underscores."));
-            return 0;
+            return new CreateResult(false, "Tribe names must be 3-16 letters, numbers, or underscores.");
         }
         if (data.getTribeByName(name) != null) {
-            source.sendFailure(Component.literal("A tribe named '" + name + "' already exists."));
-            return 0;
+            return new CreateResult(false, "A tribe named '" + name + "' already exists.");
         }
         data.createTribe(name, player.getUUID());
-        source.sendSuccess(() -> Component.literal("Founded tribe '" + name + "'. Use /tribe claim to claim your first (free) chunk."), true);
-        return 1;
+        return new CreateResult(true, "Founded tribe '" + name + "'. Use /tribe claim to claim your first (free) chunk.");
     }
 
     private static int disband(CommandSourceStack source) throws CommandSyntaxException {
@@ -213,8 +228,9 @@ public final class TribeCommand {
                     : "This chunk is already claimed by " + existing.getName() + "."));
             return 0;
         }
-        if (tribe.getClaims().size() >= TribeConfig.MAX_CLAIMS_PER_TRIBE.get()) {
-            source.sendFailure(Component.literal("Your tribe has reached the claim limit (" + TribeConfig.MAX_CLAIMS_PER_TRIBE.get() + ")."));
+        int maxClaims = TribeConfig.MAX_CLAIMS_PER_TRIBE.get();
+        if (maxClaims > 0 && tribe.getClaims().size() >= maxClaims) {
+            source.sendFailure(Component.literal("Your tribe has reached the claim limit (" + maxClaims + ")."));
             return 0;
         }
 
@@ -619,7 +635,13 @@ public final class TribeCommand {
 
     private static int map(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        TribeSavedData data = data(source);
+        String result = renderMap(player, data(source));
+        source.sendSuccess(() -> Component.literal(result), false);
+        return 1;
+    }
+
+    // Shared with TribeMenu's map button.
+    static String renderMap(ServerPlayer player, TribeSavedData data) {
         ChunkPos center = new ChunkPos(player.blockPosition());
         var dimension = player.serverLevel().dimension();
         int radius = 4;
@@ -642,9 +664,7 @@ public final class TribeCommand {
             }
             sb.append("\n");
         }
-        String result = sb.toString();
-        source.sendSuccess(() -> Component.literal(result), false);
-        return 1;
+        return sb.toString();
     }
 
     private static int gui(CommandSourceStack source) throws CommandSyntaxException {
@@ -652,11 +672,24 @@ public final class TribeCommand {
         TribeSavedData data = data(source);
         Tribe tribe = data.getTribeOf(player.getUUID());
         if (tribe == null) {
-            source.sendFailure(Component.literal("You are not in a tribe. Use /tribe create <name> first."));
-            return 0;
+            openCreationGui(player, data);
+        } else {
+            TribeMenu.openFor(player, tribe, data);
         }
-        TribeMenu.openFor(player, tribe, data);
         return 1;
+    }
+
+    private static void openCreationGui(ServerPlayer player, TribeSavedData data) {
+        TribeTextInputMenu.open(player, "Found a Tribe", name -> {
+            CreateResult result = tryCreate(player, data, name);
+            player.sendSystemMessage(Component.literal(result.message()));
+            if (result.success()) {
+                Tribe tribe = data.getTribeOf(player.getUUID());
+                if (tribe != null) {
+                    TribeMenu.openFor(player, tribe, data);
+                }
+            }
+        });
     }
 
     private static int setGreeting(CommandSourceStack source, String message) throws CommandSyntaxException {
@@ -733,6 +766,9 @@ public final class TribeCommand {
         setter.accept(tribe, value);
         data.setDirty();
         source.sendSuccess(() -> Component.literal(tribe.getName() + ": " + label + " is now " + (value ? "ON" : "OFF") + "."), true);
+        if (label.equals("Taxes") && value && !TribeConfig.TAXES_ENABLED.get()) {
+            source.sendFailure(Component.literal("Note: the server has taxes disabled entirely (taxesEnabled=false in config), so this won't do anything yet."));
+        }
         return 1;
     }
 
