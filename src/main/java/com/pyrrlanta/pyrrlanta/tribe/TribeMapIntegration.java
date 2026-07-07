@@ -102,8 +102,12 @@ public final class TribeMapIntegration {
         }
     }
 
-    // Deterministic per-tribe color, derived from the tribe's UUID so it's stable across restarts.
+    // Uses the tribe's custom color (/tribe set color) if set, otherwise a color
+    // deterministically derived from the tribe's UUID so it's still stable across restarts.
     private static Color shade(Tribe tribe, float alpha) {
+        if (tribe.hasColor()) {
+            return new Color(tribe.getColor(), alpha);
+        }
         float hue = (Math.abs(tribe.getId().hashCode()) % 360) / 360f;
         int rgb = java.awt.Color.HSBtoRGB(hue, 0.6f, 0.9f) & 0xFFFFFF;
         return new Color(rgb, alpha);

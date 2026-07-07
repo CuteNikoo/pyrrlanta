@@ -21,6 +21,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public final class TribeCommand {
@@ -56,6 +57,9 @@ public final class TribeCommand {
                         .executes(ctx -> accept(ctx.getSource())))
                 .then(Commands.literal("deny")
                         .executes(ctx -> deny(ctx.getSource())))
+                .then(Commands.literal("join")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                                .executes(ctx -> join(ctx.getSource(), StringArgumentType.getString(ctx, "name")))))
                 .then(Commands.literal("kick")
                         .then(Commands.argument("player", GameProfileArgument.gameProfile())
                                 .executes(ctx -> kick(ctx.getSource(), resolveProfile(ctx, "player")))))
@@ -88,6 +92,8 @@ public final class TribeCommand {
                         .executes(ctx -> list(ctx.getSource())))
                 .then(Commands.literal("map")
                         .executes(ctx -> map(ctx.getSource())))
+                .then(Commands.literal("gui")
+                        .executes(ctx -> gui(ctx.getSource())))
                 .then(Commands.literal("set")
                         .then(Commands.literal("greeting")
                                 .then(Commands.argument("message", StringArgumentType.greedyString())
@@ -95,12 +101,28 @@ public final class TribeCommand {
                         .then(Commands.literal("farewell")
                                 .then(Commands.argument("message", StringArgumentType.greedyString())
                                         .executes(ctx -> setFarewell(ctx.getSource(), StringArgumentType.getString(ctx, "message")))))
-                        .then(Commands.literal("pvp")
-                                .then(Commands.argument("value", BoolArgumentType.bool())
-                                        .executes(ctx -> setPvp(ctx.getSource(), BoolArgumentType.getBool(ctx, "value")))))
+                        .then(Commands.literal("color")
+                                .then(Commands.argument("hex", StringArgumentType.word())
+                                        .executes(ctx -> setColor(ctx.getSource(), StringArgumentType.getString(ctx, "hex"))))))
+                .then(Commands.literal("toggle")
                         .then(Commands.literal("protect")
                                 .then(Commands.argument("value", BoolArgumentType.bool())
-                                        .executes(ctx -> setProtect(ctx.getSource(), BoolArgumentType.getBool(ctx, "value"))))))
+                                        .executes(ctx -> toggle(ctx.getSource(), "Protection", BoolArgumentType.getBool(ctx, "value"), Tribe::setProtectionEnabled))))
+                        .then(Commands.literal("pvp")
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> toggle(ctx.getSource(), "PvP", BoolArgumentType.getBool(ctx, "value"), Tribe::setPvpEnabled))))
+                        .then(Commands.literal("mobs")
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> toggle(ctx.getSource(), "Mob spawning blocked", BoolArgumentType.getBool(ctx, "value"), Tribe::setMobSpawningBlocked))))
+                        .then(Commands.literal("fire")
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> toggle(ctx.getSource(), "Fire spread blocked", BoolArgumentType.getBool(ctx, "value"), Tribe::setFireSpreadBlocked))))
+                        .then(Commands.literal("keepinventory")
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> toggle(ctx.getSource(), "Keep inventory", BoolArgumentType.getBool(ctx, "value"), Tribe::setKeepInventory))))
+                        .then(Commands.literal("open")
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> toggle(ctx.getSource(), "Open membership", BoolArgumentType.getBool(ctx, "value"), Tribe::setOpen)))))
                 .then(Commands.literal("admin")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("delete")
@@ -127,6 +149,10 @@ public final class TribeCommand {
         if (online != null) {
             online.sendSystemMessage(Component.literal(message));
         }
+    }
+
+    private static String onOff(boolean value) {
+        return value ? "on" : "off";
     }
 
     private static int create(CommandSourceStack source, String name) throws CommandSyntaxException {
@@ -187,28 +213,29 @@ public final class TribeCommand {
                     : "This chunk is already claimed by " + existing.getName() + "."));
             return 0;
         }
-        if (tribe.getClaims().size() >= TribeSavedData.MAX_CLAIMS_PER_TRIBE) {
-            source.sendFailure(Component.literal("Your tribe has reached the claim limit (" + TribeSavedData.MAX_CLAIMS_PER_TRIBE + ")."));
+        if (tribe.getClaims().size() >= TribeConfig.MAX_CLAIMS_PER_TRIBE.get()) {
+            source.sendFailure(Component.literal("Your tribe has reached the claim limit (" + TribeConfig.MAX_CLAIMS_PER_TRIBE.get() + ")."));
             return 0;
         }
 
         boolean foundingClaim = tribe.getClaims().isEmpty();
+        int cost = TribeEconomy.claimCost(tribe.getClaims().size());
         if (!foundingClaim) {
             if (!data.isAdjacent(tribe, pos)) {
                 source.sendFailure(Component.literal("New claims must be adjacent to your tribe's existing territory."));
                 return 0;
             }
-            if (tribe.getTreasury() < TribeEconomy.CLAIM_COST) {
-                source.sendFailure(Component.literal("Not enough ore currency. Claiming costs " + TribeEconomy.CLAIM_COST
+            if (tribe.getTreasury() < cost) {
+                source.sendFailure(Component.literal("Not enough ore. Claiming here costs " + cost
                         + ", your tribe has " + tribe.getTreasury() + ". Use /tribe deposit."));
                 return 0;
             }
-            tribe.setTreasury(tribe.getTreasury() - TribeEconomy.CLAIM_COST);
+            tribe.setTreasury(tribe.getTreasury() - cost);
         }
 
         data.claim(tribe, pos);
         source.sendSuccess(() -> Component.literal("Claimed chunk " + pos.chunk().x + ", " + pos.chunk().z + " for " + tribe.getName()
-                + (foundingClaim ? " (founding claim, free)." : " for " + TribeEconomy.CLAIM_COST + " ore currency.")), true);
+                + (foundingClaim ? " (founding claim, free)." : " for " + cost + " ore.")), true);
         return 1;
     }
 
@@ -257,7 +284,7 @@ public final class TribeCommand {
         tribe.setTreasury(tribe.getTreasury() + value);
         data.setDirty();
         source.sendSuccess(() -> Component.literal("Deposited " + toDeposit + " " + itemName + " for " + value
-                + " ore currency. Treasury: " + tribe.getTreasury() + "."), true);
+                + " ore. Treasury: " + tribe.getTreasury() + "."), true);
         return 1;
     }
 
@@ -331,6 +358,27 @@ public final class TribeCommand {
         }
         data.setDirty();
         source.sendSuccess(() -> Component.literal("Declined all pending tribe invites."), false);
+        return 1;
+    }
+
+    private static int join(CommandSourceStack source, String name) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        TribeSavedData data = data(source);
+        if (data.getTribeOf(player.getUUID()) != null) {
+            source.sendFailure(Component.literal("You are already in a tribe."));
+            return 0;
+        }
+        Tribe tribe = data.getTribeByName(name);
+        if (tribe == null) {
+            source.sendFailure(Component.literal("No tribe named '" + name + "'."));
+            return 0;
+        }
+        if (!tribe.isOpen()) {
+            source.sendFailure(Component.literal(tribe.getName() + " is invite-only. Ask an officer to /tribe invite you."));
+            return 0;
+        }
+        data.addMember(tribe, player.getUUID(), TribeRole.MEMBER);
+        source.sendSuccess(() -> Component.literal("You joined tribe '" + tribe.getName() + "'."), true);
         return 1;
     }
 
@@ -544,10 +592,14 @@ public final class TribeCommand {
                         + "Leader: " + playerName(source, t.getLeader()) + "\n"
                         + "Members: " + t.getMembers().size() + "\n"
                         + "Claims: " + t.getClaims().size() + "\n"
-                        + "Treasury: " + t.getTreasury() + " ore currency\n"
-                        + "Protected: " + (t.isProtectionEnabled() ? "yes" : "no") + "\n"
+                        + "Treasury: " + t.getTreasury() + " ore\n"
                         + "Trusted outsiders: " + t.getTrusted().size() + "\n"
-                        + "PvP: " + (t.isPvpEnabled() ? "enabled" : "disabled")
+                        + "Toggles: protect=" + onOff(t.isProtectionEnabled())
+                        + ", pvp=" + onOff(t.isPvpEnabled())
+                        + ", mobs blocked=" + onOff(t.isMobSpawningBlocked())
+                        + ", fire blocked=" + onOff(t.isFireSpreadBlocked())
+                        + ", keep inventory=" + onOff(t.isKeepInventory())
+                        + ", open=" + onOff(t.isOpen())
         ), false);
         return 1;
     }
@@ -595,6 +647,18 @@ public final class TribeCommand {
         return 1;
     }
 
+    private static int gui(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        TribeSavedData data = data(source);
+        Tribe tribe = data.getTribeOf(player.getUUID());
+        if (tribe == null) {
+            source.sendFailure(Component.literal("You are not in a tribe. Use /tribe create <name> first."));
+            return 0;
+        }
+        TribeMenu.openFor(player, tribe, data);
+        return 1;
+    }
+
     private static int setGreeting(CommandSourceStack source, String message) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         TribeSavedData data = data(source);
@@ -631,7 +695,7 @@ public final class TribeCommand {
         return 1;
     }
 
-    private static int setPvp(CommandSourceStack source, boolean value) throws CommandSyntaxException {
+    private static int setColor(CommandSourceStack source, String hex) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         TribeSavedData data = data(source);
         Tribe tribe = data.getTribeOf(player.getUUID());
@@ -643,13 +707,18 @@ public final class TribeCommand {
             source.sendFailure(Component.literal("Only officers and the leader can change tribe settings."));
             return 0;
         }
-        tribe.setPvpEnabled(value);
+        String cleaned = hex.startsWith("#") ? hex.substring(1) : hex;
+        if (!cleaned.matches("[0-9a-fA-F]{6}")) {
+            source.sendFailure(Component.literal("Color must be a 6-digit hex code (no #), e.g. 3498db."));
+            return 0;
+        }
+        tribe.setColor(Integer.parseInt(cleaned, 16));
         data.setDirty();
-        source.sendSuccess(() -> Component.literal("PvP is now " + (value ? "enabled" : "disabled") + " in " + tribe.getName() + "'s territory."), true);
+        source.sendSuccess(() -> Component.literal(tribe.getName() + "'s color updated."), true);
         return 1;
     }
 
-    private static int setProtect(CommandSourceStack source, boolean value) throws CommandSyntaxException {
+    private static int toggle(CommandSourceStack source, String label, boolean value, BiConsumer<Tribe, Boolean> setter) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         TribeSavedData data = data(source);
         Tribe tribe = data.getTribeOf(player.getUUID());
@@ -661,11 +730,9 @@ public final class TribeCommand {
             source.sendFailure(Component.literal("Only officers and the leader can change tribe settings."));
             return 0;
         }
-        tribe.setProtectionEnabled(value);
+        setter.accept(tribe, value);
         data.setDirty();
-        source.sendSuccess(() -> Component.literal(value
-                ? tribe.getName() + "'s territory is now protected. Only members and trusted players may build or interact."
-                : tribe.getName() + "'s territory is no longer protected."), true);
+        source.sendSuccess(() -> Component.literal(tribe.getName() + ": " + label + " is now " + (value ? "ON" : "OFF") + "."), true);
         return 1;
     }
 

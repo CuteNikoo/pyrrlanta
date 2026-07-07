@@ -2,11 +2,17 @@ package com.pyrrlanta.pyrrlanta.tribe;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.MobSpawnType;
 
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.util.TriState;
+import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
+import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -81,6 +87,56 @@ public final class TribeProtectionEvents {
             Tribe owner = data.getTribeAt(ClaimPos.of(level, pos));
             return owner != null && owner.isProtectionEnabled();
         });
+    }
+
+    @SubscribeEvent
+    public static void onMobSpawn(FinalizeSpawnEvent event) {
+        // Only block ambient/natural hostile spawns -- not spawn eggs, breeding, dispensers, etc.
+        if (event.getSpawnType() != MobSpawnType.NATURAL || !(event.getEntity() instanceof Enemy)) {
+            return;
+        }
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        BlockPos pos = BlockPos.containing(event.getX(), event.getY(), event.getZ());
+        TribeSavedData data = TribeSavedData.get(level.getServer());
+        Tribe owner = data.getTribeAt(ClaimPos.of(level, pos));
+        if (owner != null && owner.isMobSpawningBlocked()) {
+            event.setSpawnCancelled(true);
+        }
+    }
+
+    // Keeps a dying player's items instead of dropping them on the ground, if their tribe's
+    // claim has keepInventory on. Each drop is only removed from the drop list once it's been
+    // successfully placed back in the player's inventory -- Inventory#add() only mutates on a
+    // full, successful placement, so a full inventory just falls back to a normal ground drop
+    // for the leftover instead of silently destroying it.
+    @SubscribeEvent
+    public static void onLivingDrops(LivingDropsEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)) {
+            return;
+        }
+        TribeSavedData data = TribeSavedData.get(level.getServer());
+        Tribe owner = data.getTribeAt(ClaimPos.of(level, player.blockPosition()));
+        if (owner == null || !owner.isKeepInventory()) {
+            return;
+        }
+        event.getDrops().removeIf(itemEntity -> player.getInventory().add(itemEntity.getItem()));
+    }
+
+    // Companion to onLivingDrops: stops XP orbs from spawning too. Note this only suppresses
+    // the dropped orbs, matching the "don't lose your stuff" spirit of the toggle -- it does
+    // not attempt to replicate the vanilla keepInventory gamerule's XP-level preservation.
+    @SubscribeEvent
+    public static void onExperienceDrop(LivingExperienceDropEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)) {
+            return;
+        }
+        TribeSavedData data = TribeSavedData.get(level.getServer());
+        Tribe owner = data.getTribeAt(ClaimPos.of(level, player.blockPosition()));
+        if (owner != null && owner.isKeepInventory()) {
+            event.setCanceled(true);
+        }
     }
 
     // Claims are open to everyone by default. A tribe only becomes protected once a

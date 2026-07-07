@@ -26,11 +26,21 @@ public class Tribe {
 
     private String greeting = "";
     private String farewell = "";
+
+    // --- Toggles (all default false/off; a high-ranking member opts in) ---
     private boolean pvpEnabled = false;
-    // Claims are NOT protected by default; a high-ranking member must opt in via /tribe set protect true.
     private boolean protectionEnabled = false;
-    // Ore currency balance, funded via /tribe deposit, spent claiming land beyond the founding claim.
+    private boolean mobSpawningBlocked = false;
+    private boolean fireSpreadBlocked = false;
+    private boolean keepInventory = false;
+    // When true, anyone can /tribe join without needing an invite.
+    private boolean open = false;
+
+    // Ore balance, funded via /tribe deposit, spent claiming land beyond the founding claim.
     private long treasury = 0;
+
+    // Packed RGB, or -1 if unset (falls back to a hash-derived color, e.g. on the map).
+    private int color = -1;
 
     // Home location. homeDimension == null means no home has been set.
     private ResourceKey<Level> homeDimension;
@@ -132,12 +142,56 @@ public class Tribe {
         this.protectionEnabled = protectionEnabled;
     }
 
+    public boolean isMobSpawningBlocked() {
+        return mobSpawningBlocked;
+    }
+
+    public void setMobSpawningBlocked(boolean mobSpawningBlocked) {
+        this.mobSpawningBlocked = mobSpawningBlocked;
+    }
+
+    public boolean isFireSpreadBlocked() {
+        return fireSpreadBlocked;
+    }
+
+    public void setFireSpreadBlocked(boolean fireSpreadBlocked) {
+        this.fireSpreadBlocked = fireSpreadBlocked;
+    }
+
+    public boolean isKeepInventory() {
+        return keepInventory;
+    }
+
+    public void setKeepInventory(boolean keepInventory) {
+        this.keepInventory = keepInventory;
+    }
+
+    public boolean isOpen() {
+        return open;
+    }
+
+    public void setOpen(boolean open) {
+        this.open = open;
+    }
+
     public long getTreasury() {
         return treasury;
     }
 
     public void setTreasury(long treasury) {
         this.treasury = treasury;
+    }
+
+    public boolean hasColor() {
+        return color != -1;
+    }
+
+    public int getColor() {
+        return color;
+    }
+
+    public void setColor(int color) {
+        this.color = color;
     }
 
     public boolean hasHome() {
@@ -186,7 +240,12 @@ public class Tribe {
         tag.putString("farewell", farewell);
         tag.putBoolean("pvp", pvpEnabled);
         tag.putBoolean("protected", protectionEnabled);
+        tag.putBoolean("mobSpawningBlocked", mobSpawningBlocked);
+        tag.putBoolean("fireSpreadBlocked", fireSpreadBlocked);
+        tag.putBoolean("keepInventory", keepInventory);
+        tag.putBoolean("open", open);
         tag.putLong("treasury", treasury);
+        tag.putInt("color", color);
 
         ListTag membersTag = new ListTag();
         for (Map.Entry<UUID, TribeRole> entry : members.entrySet()) {
@@ -241,7 +300,12 @@ public class Tribe {
         tribe.farewell = tag.getString("farewell");
         tribe.pvpEnabled = tag.getBoolean("pvp");
         tribe.protectionEnabled = tag.getBoolean("protected");
+        tribe.mobSpawningBlocked = tag.getBoolean("mobSpawningBlocked");
+        tribe.fireSpreadBlocked = tag.getBoolean("fireSpreadBlocked");
+        tribe.keepInventory = tag.getBoolean("keepInventory");
+        tribe.open = tag.getBoolean("open");
         tribe.treasury = tag.getLong("treasury");
+        tribe.color = tag.contains("color") ? tag.getInt("color") : -1;
 
         ListTag membersTag = tag.getList("members", Tag.TAG_COMPOUND);
         for (Tag t : membersTag) {

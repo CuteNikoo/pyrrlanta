@@ -17,7 +17,6 @@ import java.util.UUID;
 
 public class TribeSavedData extends SavedData {
     public static final String ID = "pyrrlanta_tribes";
-    public static final int MAX_CLAIMS_PER_TRIBE = 64;
 
     public static final SavedData.Factory<TribeSavedData> FACTORY =
             new SavedData.Factory<>(TribeSavedData::new, TribeSavedData::load);
