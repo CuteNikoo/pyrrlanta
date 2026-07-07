@@ -75,4 +75,21 @@ public final class TribeMessageEvents {
         LAST_CHUNK.remove(id);
         LAST_TRIBE.remove(id);
     }
+
+    @SubscribeEvent
+    public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        TribeSavedData data = TribeSavedData.get(player.serverLevel().getServer());
+        if (data.getTribeOf(player.getUUID()) != null) {
+            return;
+        }
+        for (Tribe tribe : data.getAllTribes()) {
+            if (tribe.getInvites().contains(player.getUUID())) {
+                player.sendSystemMessage(Component.literal("You have a pending invite to join tribe '" + tribe.getName()
+                        + "'. Use /tribe accept or /tribe deny."));
+            }
+        }
+    }
 }

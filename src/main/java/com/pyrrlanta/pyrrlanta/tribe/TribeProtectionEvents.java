@@ -12,6 +12,8 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 
+import java.util.UUID;
+
 // Enforces tribe claim protection: only members (or anyone, if the tribe allows public
 // access) may break/place blocks or interact with blocks inside a claimed chunk.
 // PvP and explosions are blocked inside claims unless the tribe has PvP enabled.
@@ -75,18 +77,22 @@ public final class TribeProtectionEvents {
             return;
         }
         TribeSavedData data = TribeSavedData.get(level.getServer());
-        event.getAffectedBlocks().removeIf(pos -> data.getTribeAt(ClaimPos.of(level, pos)) != null);
+        event.getAffectedBlocks().removeIf(pos -> {
+            Tribe owner = data.getTribeAt(ClaimPos.of(level, pos));
+            return owner != null && owner.isProtectionEnabled();
+        });
     }
 
+    // Claims are open to everyone by default. A tribe only becomes protected once a
+    // high-ranking member turns it on with /tribe set protect true, at which point only
+    // members and explicitly trusted outsiders may build or interact.
     private static boolean canModify(ServerLevel level, BlockPos pos, Player player) {
         TribeSavedData data = TribeSavedData.get(level.getServer());
         Tribe owner = data.getTribeAt(ClaimPos.of(level, pos));
-        if (owner == null) {
+        if (owner == null || !owner.isProtectionEnabled()) {
             return true;
         }
-        if (owner.isPublicAccess()) {
-            return true;
-        }
-        return owner.isMember(player.getUUID());
+        UUID playerId = player.getUUID();
+        return owner.isMember(playerId) || owner.isTrusted(playerId);
     }
 }

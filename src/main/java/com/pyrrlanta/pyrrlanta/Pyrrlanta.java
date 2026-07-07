@@ -5,11 +5,13 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import com.pyrrlanta.pyrrlanta.tribe.TribeCommand;
+import com.pyrrlanta.pyrrlanta.tribe.TribeMapIntegration;
 import com.pyrrlanta.pyrrlanta.tribe.TribeMessageEvents;
 import com.pyrrlanta.pyrrlanta.tribe.TribeProtectionEvents;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -30,6 +32,11 @@ public class Pyrrlanta {
         NeoForge.EVENT_BUS.register(TribeCommand.class);
         NeoForge.EVENT_BUS.register(TribeProtectionEvents.class);
         NeoForge.EVENT_BUS.register(TribeMessageEvents.class);
+
+        // Soft dependency: only touch BlueMap's classes if the mod is actually present.
+        if (ModList.get().isLoaded("bluemap")) {
+            TribeMapIntegration.init();
+        }
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

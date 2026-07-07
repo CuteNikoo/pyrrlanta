@@ -6,6 +6,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.Collection;
@@ -76,6 +77,19 @@ public class TribeSavedData extends SavedData {
     public Tribe getTribeAt(ClaimPos pos) {
         UUID id = claimIndex.get(pos);
         return id == null ? null : tribes.get(id);
+    }
+
+    // A new claim must touch an already-claimed chunk of the same tribe (same dimension).
+    // Does not apply to a tribe's founding claim, which the caller handles separately.
+    public boolean isAdjacent(Tribe tribe, ClaimPos pos) {
+        int[][] offsets = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] offset : offsets) {
+            ClaimPos neighbor = new ClaimPos(pos.dimension(), new ChunkPos(pos.chunk().x + offset[0], pos.chunk().z + offset[1]));
+            if (tribe.getClaims().contains(neighbor)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean claim(Tribe tribe, ClaimPos pos) {

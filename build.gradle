@@ -28,6 +28,10 @@ sourceSets.main.resources {
 
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
+    maven {
+        name = 'BlueMap'
+        url = 'https://repo.bluecolored.de/releases'
+    }
 }
 
 base {
@@ -118,6 +122,11 @@ configurations {
 }
 
 dependencies {
+    // Soft dependency: only used to draw tribe claims on the map if the BlueMap mod is
+    // present on the server. compileOnly means it's available for compilation but is NOT
+    // bundled or required at runtime -- see TribeMapIntegration for the runtime presence check.
+    compileOnly 'de.bluecolored:bluemap-api:2.7.7'
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"

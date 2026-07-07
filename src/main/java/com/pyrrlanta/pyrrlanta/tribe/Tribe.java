@@ -21,11 +21,16 @@ public class Tribe {
     private final Map<UUID, TribeRole> members = new LinkedHashMap<>();
     private final Set<ClaimPos> claims = new LinkedHashSet<>();
     private final Set<UUID> invites = new LinkedHashSet<>();
+    // Non-members allowed to bypass protection without being full tribe members.
+    private final Set<UUID> trusted = new LinkedHashSet<>();
 
     private String greeting = "";
     private String farewell = "";
     private boolean pvpEnabled = false;
-    private boolean publicAccess = false;
+    // Claims are NOT protected by default; a high-ranking member must opt in via /tribe set protect true.
+    private boolean protectionEnabled = false;
+    // Ore currency balance, funded via /tribe deposit, spent claiming land beyond the founding claim.
+    private long treasury = 0;
 
     // Home location. homeDimension == null means no home has been set.
     private ResourceKey<Level> homeDimension;
@@ -87,6 +92,14 @@ public class Tribe {
         return invites;
     }
 
+    public Set<UUID> getTrusted() {
+        return trusted;
+    }
+
+    public boolean isTrusted(UUID player) {
+        return trusted.contains(player);
+    }
+
     public String getGreeting() {
         return greeting;
     }
@@ -111,12 +124,20 @@ public class Tribe {
         this.pvpEnabled = pvpEnabled;
     }
 
-    public boolean isPublicAccess() {
-        return publicAccess;
+    public boolean isProtectionEnabled() {
+        return protectionEnabled;
     }
 
-    public void setPublicAccess(boolean publicAccess) {
-        this.publicAccess = publicAccess;
+    public void setProtectionEnabled(boolean protectionEnabled) {
+        this.protectionEnabled = protectionEnabled;
+    }
+
+    public long getTreasury() {
+        return treasury;
+    }
+
+    public void setTreasury(long treasury) {
+        this.treasury = treasury;
     }
 
     public boolean hasHome() {
@@ -164,7 +185,8 @@ public class Tribe {
         tag.putString("greeting", greeting);
         tag.putString("farewell", farewell);
         tag.putBoolean("pvp", pvpEnabled);
-        tag.putBoolean("public", publicAccess);
+        tag.putBoolean("protected", protectionEnabled);
+        tag.putLong("treasury", treasury);
 
         ListTag membersTag = new ListTag();
         for (Map.Entry<UUID, TribeRole> entry : members.entrySet()) {
@@ -182,6 +204,14 @@ public class Tribe {
             invitesTag.add(inviteTag);
         }
         tag.put("invites", invitesTag);
+
+        ListTag trustedTag = new ListTag();
+        for (UUID trustedPlayer : trusted) {
+            CompoundTag trustedEntry = new CompoundTag();
+            trustedEntry.putUUID("player", trustedPlayer);
+            trustedTag.add(trustedEntry);
+        }
+        tag.put("trusted", trustedTag);
 
         ListTag claimsTag = new ListTag();
         for (ClaimPos claim : claims) {
@@ -210,7 +240,8 @@ public class Tribe {
         tribe.greeting = tag.getString("greeting");
         tribe.farewell = tag.getString("farewell");
         tribe.pvpEnabled = tag.getBoolean("pvp");
-        tribe.publicAccess = tag.getBoolean("public");
+        tribe.protectionEnabled = tag.getBoolean("protected");
+        tribe.treasury = tag.getLong("treasury");
 
         ListTag membersTag = tag.getList("members", Tag.TAG_COMPOUND);
         for (Tag t : membersTag) {
@@ -221,6 +252,11 @@ public class Tribe {
         ListTag invitesTag = tag.getList("invites", Tag.TAG_COMPOUND);
         for (Tag t : invitesTag) {
             tribe.invites.add(((CompoundTag) t).getUUID("player"));
+        }
+
+        ListTag trustedTag = tag.getList("trusted", Tag.TAG_COMPOUND);
+        for (Tag t : trustedTag) {
+            tribe.trusted.add(((CompoundTag) t).getUUID("player"));
         }
 
         ListTag claimsTag = tag.getList("claims", Tag.TAG_COMPOUND);
