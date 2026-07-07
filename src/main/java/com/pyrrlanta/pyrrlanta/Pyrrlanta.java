@@ -4,10 +4,15 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import com.pyrrlanta.pyrrlanta.tribe.TribeCommand;
+import com.pyrrlanta.pyrrlanta.tribe.TribeMessageEvents;
+import com.pyrrlanta.pyrrlanta.tribe.TribeProtectionEvents;
+
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.common.NeoForge;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(Pyrrlanta.MODID)
@@ -21,6 +26,10 @@ public class Pyrrlanta {
     // FML will recognize some parameter types like IEventBus or ModContainer and pass them in automatically.
     public Pyrrlanta(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::commonSetup);
+
+        NeoForge.EVENT_BUS.register(TribeCommand.class);
+        NeoForge.EVENT_BUS.register(TribeProtectionEvents.class);
+        NeoForge.EVENT_BUS.register(TribeMessageEvents.class);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
