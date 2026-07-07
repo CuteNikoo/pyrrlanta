@@ -85,6 +85,9 @@ public final class TribeCommand {
                         .executes(ctx -> setHome(ctx.getSource())))
                 .then(Commands.literal("home")
                         .executes(ctx -> home(ctx.getSource())))
+                .then(Commands.literal("autoclaim")
+                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                .executes(ctx -> autoclaim(ctx.getSource(), BoolArgumentType.getBool(ctx, "value")))))
                 .then(Commands.literal("info")
                         .executes(ctx -> info(ctx.getSource(), null))
                         .then(Commands.argument("name", StringArgumentType.word())
@@ -585,6 +588,24 @@ public final class TribeCommand {
         return 1;
     }
 
+    private static int autoclaim(CommandSourceStack source, boolean value) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        TribeSavedData data = data(source);
+        Tribe tribe = data.getTribeOf(player.getUUID());
+        if (tribe == null) {
+            source.sendFailure(NOT_IN_TRIBE);
+            return 0;
+        }
+        if (!tribe.hasPermission(player.getUUID(), TribeRole.OFFICER)) {
+            source.sendFailure(Component.literal("Only officers and the leader can use autoclaim (it spends tribe ore)."));
+            return 0;
+        }
+        TribeAutoClaim.setEnabled(player.getUUID(), value);
+        source.sendSuccess(() -> Component.literal("Autoclaim is now " + (value ? "ON" : "OFF")
+                + (value ? ". Walk into unclaimed, adjacent chunks to claim them automatically." : ".")), true);
+        return 1;
+    }
+
     private static int info(CommandSourceStack source, String name) throws CommandSyntaxException {
         TribeSavedData data = data(source);
         Tribe tribe;
@@ -680,7 +701,8 @@ public final class TribeCommand {
     }
 
     private static void openCreationGui(ServerPlayer player, TribeSavedData data) {
-        TribeTextInputMenu.open(player, "Found a Tribe", name -> {
+        TribeTextInputMenu.open(player, "Found a Tribe",
+                "Type your new tribe's name into the anvil, then click the result slot to confirm.", name -> {
             CreateResult result = tryCreate(player, data, name);
             player.sendSystemMessage(Component.literal(result.message()));
             if (result.success()) {

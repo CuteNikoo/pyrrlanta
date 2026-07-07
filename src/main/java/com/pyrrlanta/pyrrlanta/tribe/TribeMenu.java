@@ -79,8 +79,8 @@ public class TribeMenu extends ChestMenu {
             case 23 -> doDeposit();
             case 24 -> doMap();
             case 25 -> doLeave();
-            case 30 -> promptText("Set Greeting", tribe::setGreeting);
-            case 31 -> promptText("Set Farewell", tribe::setFarewell);
+            case 30 -> promptText("Set Greeting", "Type the new greeting message into the anvil, then click the result slot to confirm.", tribe::setGreeting);
+            case 31 -> promptText("Set Farewell", "Type the new farewell message into the anvil, then click the result slot to confirm.", tribe::setFarewell);
             case 32 -> promptColor();
             case 38 -> toggle("Protection", tribe.isProtectionEnabled(), tribe::setProtectionEnabled);
             case 39 -> toggle("Chest/container protection", tribe.isChestProtectionEnabled(), tribe::setChestProtectionEnabled);
@@ -227,11 +227,11 @@ public class TribeMenu extends ChestMenu {
         viewer.closeContainer();
     }
 
-    private void promptText(String title, Consumer<String> setter) {
+    private void promptText(String title, String instructions, Consumer<String> setter) {
         if (!requireOfficer()) {
             return;
         }
-        TribeTextInputMenu.open(viewer, title, typed -> {
+        TribeTextInputMenu.open(viewer, title, instructions, typed -> {
             setter.accept(typed);
             data.setDirty();
             viewer.sendSystemMessage(Component.literal(title + " updated."));
@@ -243,7 +243,8 @@ public class TribeMenu extends ChestMenu {
         if (!requireOfficer()) {
             return;
         }
-        TribeTextInputMenu.open(viewer, "Set Color (hex, no #)", typed -> {
+        TribeTextInputMenu.open(viewer, "Set Color (hex, no #)",
+                "Type a 6-digit hex color (no #, e.g. 3498db) into the anvil, then click the result slot to confirm.", typed -> {
             String cleaned = typed.startsWith("#") ? typed.substring(1) : typed;
             if (!cleaned.matches("[0-9a-fA-F]{6}")) {
                 viewer.sendSystemMessage(Component.literal("Color must be a 6-digit hex code (no #), e.g. 3498db."));
