@@ -10,6 +10,7 @@ import com.pyrrlanta.pyrrlanta.tribe.TribeFireGuard;
 import com.pyrrlanta.pyrrlanta.tribe.TribeMapIntegration;
 import com.pyrrlanta.pyrrlanta.tribe.TribeMessageEvents;
 import com.pyrrlanta.pyrrlanta.tribe.TribeProtectionEvents;
+import com.pyrrlanta.pyrrlanta.tribe.TribeTaxCollector;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -36,6 +37,7 @@ public class Pyrrlanta {
         NeoForge.EVENT_BUS.register(TribeProtectionEvents.class);
         NeoForge.EVENT_BUS.register(TribeMessageEvents.class);
         TribeFireGuard.init();
+        TribeTaxCollector.init();
 
         modContainer.registerConfig(ModConfig.Type.COMMON, TribeConfig.SPEC);
 

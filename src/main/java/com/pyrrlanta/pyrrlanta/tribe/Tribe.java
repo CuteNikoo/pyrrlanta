@@ -30,11 +30,16 @@ public class Tribe {
     // --- Toggles (all default false/off; a high-ranking member opts in) ---
     private boolean pvpEnabled = false;
     private boolean protectionEnabled = false;
+    // Separate from protectionEnabled: gates opening chests/barrels/furnaces/hoppers/
+    // shulker boxes/etc specifically, independent of general build protection.
+    private boolean chestProtectionEnabled = false;
     private boolean mobSpawningBlocked = false;
     private boolean fireSpreadBlocked = false;
     private boolean keepInventory = false;
     // When true, anyone can /tribe join without needing an invite.
     private boolean open = false;
+    // When true, the tribe periodically pays ore upkeep per claim (see TribeTaxCollector).
+    private boolean taxesEnabled = false;
 
     // Ore balance, funded via /tribe deposit, spent claiming land beyond the founding claim.
     private long treasury = 0;
@@ -142,6 +147,14 @@ public class Tribe {
         this.protectionEnabled = protectionEnabled;
     }
 
+    public boolean isChestProtectionEnabled() {
+        return chestProtectionEnabled;
+    }
+
+    public void setChestProtectionEnabled(boolean chestProtectionEnabled) {
+        this.chestProtectionEnabled = chestProtectionEnabled;
+    }
+
     public boolean isMobSpawningBlocked() {
         return mobSpawningBlocked;
     }
@@ -172,6 +185,14 @@ public class Tribe {
 
     public void setOpen(boolean open) {
         this.open = open;
+    }
+
+    public boolean isTaxesEnabled() {
+        return taxesEnabled;
+    }
+
+    public void setTaxesEnabled(boolean taxesEnabled) {
+        this.taxesEnabled = taxesEnabled;
     }
 
     public long getTreasury() {
@@ -240,10 +261,12 @@ public class Tribe {
         tag.putString("farewell", farewell);
         tag.putBoolean("pvp", pvpEnabled);
         tag.putBoolean("protected", protectionEnabled);
+        tag.putBoolean("chestProtected", chestProtectionEnabled);
         tag.putBoolean("mobSpawningBlocked", mobSpawningBlocked);
         tag.putBoolean("fireSpreadBlocked", fireSpreadBlocked);
         tag.putBoolean("keepInventory", keepInventory);
         tag.putBoolean("open", open);
+        tag.putBoolean("taxesEnabled", taxesEnabled);
         tag.putLong("treasury", treasury);
         tag.putInt("color", color);
 
@@ -300,10 +323,12 @@ public class Tribe {
         tribe.farewell = tag.getString("farewell");
         tribe.pvpEnabled = tag.getBoolean("pvp");
         tribe.protectionEnabled = tag.getBoolean("protected");
+        tribe.chestProtectionEnabled = tag.getBoolean("chestProtected");
         tribe.mobSpawningBlocked = tag.getBoolean("mobSpawningBlocked");
         tribe.fireSpreadBlocked = tag.getBoolean("fireSpreadBlocked");
         tribe.keepInventory = tag.getBoolean("keepInventory");
         tribe.open = tag.getBoolean("open");
+        tribe.taxesEnabled = tag.getBoolean("taxesEnabled");
         tribe.treasury = tag.getLong("treasury");
         tribe.color = tag.contains("color") ? tag.getInt("color") : -1;
 

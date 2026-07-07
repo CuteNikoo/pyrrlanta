@@ -1,6 +1,7 @@
 package com.pyrrlanta.pyrrlanta.tribe;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.Container;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -55,7 +56,13 @@ public final class TribeProtectionEvents {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
-        if (!canModify(level, event.getPos(), player)) {
+        BlockPos pos = event.getPos();
+        // Chests/barrels/furnaces/hoppers/shulker boxes/etc all have a BlockEntity that
+        // implements Container -- use that as the general test for "is this lootable",
+        // gated by its own toggle instead of the general build-protection one.
+        boolean isContainer = level.getBlockEntity(pos) instanceof Container;
+        boolean allowed = isContainer ? canOpenContainer(level, pos, player) : canModify(level, pos, player);
+        if (!allowed) {
             event.setUseBlock(TriState.FALSE);
             event.setUseItem(TriState.FALSE);
         }
@@ -140,12 +147,24 @@ public final class TribeProtectionEvents {
     }
 
     // Claims are open to everyone by default. A tribe only becomes protected once a
-    // high-ranking member turns it on with /tribe set protect true, at which point only
+    // high-ranking member turns it on with /tribe toggle protect true, at which point only
     // members and explicitly trusted outsiders may build or interact.
     private static boolean canModify(ServerLevel level, BlockPos pos, Player player) {
         TribeSavedData data = TribeSavedData.get(level.getServer());
         Tribe owner = data.getTribeAt(ClaimPos.of(level, pos));
         if (owner == null || !owner.isProtectionEnabled()) {
+            return true;
+        }
+        UUID playerId = player.getUUID();
+        return owner.isMember(playerId) || owner.isTrusted(playerId);
+    }
+
+    // Separate toggle (/tribe toggle chests true) so a tribe can protect its loot without
+    // necessarily locking down general building, or vice versa.
+    private static boolean canOpenContainer(ServerLevel level, BlockPos pos, Player player) {
+        TribeSavedData data = TribeSavedData.get(level.getServer());
+        Tribe owner = data.getTribeAt(ClaimPos.of(level, pos));
+        if (owner == null || !owner.isChestProtectionEnabled()) {
             return true;
         }
         UUID playerId = player.getUUID();

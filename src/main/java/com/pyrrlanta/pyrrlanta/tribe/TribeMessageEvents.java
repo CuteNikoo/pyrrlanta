@@ -43,6 +43,7 @@ public final class TribeMessageEvents {
         ServerLevel level = player.serverLevel();
         TribeSavedData data = TribeSavedData.get(level.getServer());
         ClaimPos pos = new ClaimPos(level.dimension(), current);
+        tryAutoClaim(player, data, pos);
         Tribe newOwner = data.getTribeAt(pos);
         UUID newOwnerId = newOwner == null ? null : newOwner.getId();
         UUID oldOwnerId = LAST_TRIBE.get(player.getUUID());
@@ -69,11 +70,51 @@ public final class TribeMessageEvents {
         }
     }
 
+    // If the player has autoclaim on (/tribe autoclaim true), claims the chunk they just
+    // stepped into for their tribe -- as long as it's unclaimed, they're at least an
+    // officer, and (beyond the tribe's free founding claim) it's adjacent to existing
+    // territory and affordable. Skips silently on any of those failing rather than
+    // spamming messages while walking through the wilderness or after running out of ore;
+    // only successful auto-claims are announced.
+    private static void tryAutoClaim(ServerPlayer player, TribeSavedData data, ClaimPos pos) {
+        if (!TribeAutoClaim.isEnabled(player.getUUID())) {
+            return;
+        }
+        Tribe tribe = data.getTribeOf(player.getUUID());
+        if (tribe == null || !tribe.hasPermission(player.getUUID(), TribeRole.OFFICER)) {
+            return;
+        }
+        if (data.getTribeAt(pos) != null) {
+            return;
+        }
+        boolean founding = tribe.getClaims().isEmpty();
+        int cost = 0;
+        if (!founding) {
+            if (!data.isAdjacent(tribe, pos)) {
+                return;
+            }
+            int maxClaims = TribeConfig.MAX_CLAIMS_PER_TRIBE.get();
+            if (maxClaims > 0 && tribe.getClaims().size() >= maxClaims) {
+                return;
+            }
+            cost = TribeEconomy.claimCost(tribe.getClaims().size());
+            if (tribe.getTreasury() < cost) {
+                return;
+            }
+            tribe.setTreasury(tribe.getTreasury() - cost);
+        }
+        data.claim(tribe, pos);
+        int finalCost = cost;
+        player.displayClientMessage(Component.literal("Auto-claimed " + pos.chunk().x + ", " + pos.chunk().z
+                + (founding ? " (founding claim, free)" : " for " + finalCost + " ore")), true);
+    }
+
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         UUID id = event.getEntity().getUUID();
         LAST_CHUNK.remove(id);
         LAST_TRIBE.remove(id);
+        TribeAutoClaim.clear(id);
     }
 
     @SubscribeEvent

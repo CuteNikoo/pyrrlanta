@@ -14,8 +14,8 @@ public class TribeConfig {
             .defineInRange("claimCostIncrement", 5, 0, Integer.MAX_VALUE);
 
     public static final ModConfigSpec.IntValue MAX_CLAIMS_PER_TRIBE = BUILDER
-            .comment("Maximum number of chunks a single tribe may claim.")
-            .defineInRange("maxClaimsPerTribe", 64, 1, Integer.MAX_VALUE);
+            .comment("Maximum number of chunks a single tribe may claim. 0 = unlimited.")
+            .defineInRange("maxClaimsPerTribe", 0, 0, Integer.MAX_VALUE);
 
     public static final ModConfigSpec.IntValue IRON_VALUE = BUILDER
             .comment("Ore value of one iron ingot. Kept low by default since iron is trivial to automate (e.g. with Create).")
@@ -28,6 +28,19 @@ public class TribeConfig {
     public static final ModConfigSpec.IntValue DIAMOND_VALUE = BUILDER
             .comment("Ore value of one diamond. The hardest of the three to automate, so it's worth the most.")
             .defineInRange("diamondValue", 25, 0, Integer.MAX_VALUE);
+
+    public static final ModConfigSpec.BooleanValue TAXES_ENABLED = BUILDER
+            .comment("Master switch for the taxes feature. Off by default. If false, taxes never run "
+                    + "server-wide even for tribes that have turned on /tribe toggle taxes true.")
+            .define("taxesEnabled", false);
+
+    public static final ModConfigSpec.IntValue TAX_PER_CLAIM = BUILDER
+            .comment("Ore charged per claim, per tax cycle, for tribes that have taxes enabled (off by default).")
+            .defineInRange("taxPerClaim", 2, 0, Integer.MAX_VALUE);
+
+    public static final ModConfigSpec.IntValue TAX_INTERVAL_TICKS = BUILDER
+            .comment("How often taxes are collected, in ticks. Default is 24000 (one Minecraft day).")
+            .defineInRange("taxIntervalTicks", 24000, 1200, Integer.MAX_VALUE);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
