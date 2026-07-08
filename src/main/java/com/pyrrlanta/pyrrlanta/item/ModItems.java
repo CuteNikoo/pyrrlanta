@@ -83,24 +83,27 @@ public final class ModItems {
                 .component(DataComponents.UNBREAKABLE, new Unbreakable(true));
     }
 
-    // 15 attack damage (base 1.0 + 14.0), axe-speed (base 4.0 - 3.0 = 1.0 attacks/sec,
-    // matching netherite axe), and entity_interaction_range +0.5 for "slightly more range"
-    // (vanilla fallback for when Better Combat isn't installed -- Better Combat has its own
-    // range_bonus mechanic set in the weapon_attributes compat file). Attack damage/speed
+    // 12 attack damage (base 1.0 + 11.0, nerfed down from an earlier 15) and axe-speed
+    // (base 4.0 - 3.0 = 1.0 attacks/sec, matching netherite axe). Attack damage/speed
     // deliberately use vanilla's own canonical modifier IDs (Item.BASE_ATTACK_DAMAGE_ID/
     // BASE_ATTACK_SPEED_ID) instead of a custom one, since tooltip-aware mods (including
     // Better Combat) key off these well-known IDs to render the normal absolute-value
-    // "15 Attack Damage" style tooltip instead of a raw "+14" delta.
+    // "12 Attack Damage" style tooltip instead of a raw delta.
+    //
+    // No entity_interaction_range modifier here on purpose: 1.21.1's ItemAttributeModifiers
+    // has no way to hide a modifier from the tooltip, so a vanilla range attribute always
+    // shows its own "+X entity interaction range" line -- which read as wrong/confusing next
+    // to Better Combat's own "attack range" stat. Reach now comes entirely from the
+    // range_bonus field in the Better Combat weapon_attributes compat file instead, so the
+    // displayed number matches Better Combat's own terminology. Tradeoff: no extra reach at
+    // all if Better Combat isn't installed.
     private static ItemAttributeModifiers weaponAttributes() {
         return ItemAttributeModifiers.builder()
                 .add(Attributes.ATTACK_DAMAGE,
-                        new AttributeModifier(Item.BASE_ATTACK_DAMAGE_ID, 14.0, AttributeModifier.Operation.ADD_VALUE),
+                        new AttributeModifier(Item.BASE_ATTACK_DAMAGE_ID, 11.0, AttributeModifier.Operation.ADD_VALUE),
                         EquipmentSlotGroup.MAINHAND)
                 .add(Attributes.ATTACK_SPEED,
                         new AttributeModifier(Item.BASE_ATTACK_SPEED_ID, -3.0, AttributeModifier.Operation.ADD_VALUE),
-                        EquipmentSlotGroup.MAINHAND)
-                .add(Attributes.ENTITY_INTERACTION_RANGE,
-                        new AttributeModifier(ResourceLocation.fromNamespaceAndPath(Pyrrlanta.MODID, "weapon.range"), 0.5, AttributeModifier.Operation.ADD_VALUE),
                         EquipmentSlotGroup.MAINHAND)
                 .build();
     }

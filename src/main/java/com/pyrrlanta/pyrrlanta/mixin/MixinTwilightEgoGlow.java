@@ -26,7 +26,7 @@ public abstract class MixinTwilightEgoGlow {
     @Shadow
     public LocalPlayer player;
 
-    private static final double HIGHLIGHT_RADIUS_SQR = 16.0 * 16.0;
+    private static final double HIGHLIGHT_RADIUS_SQR = 32.0 * 32.0;
 
     @Inject(method = "shouldEntityAppearGlowing(Lnet/minecraft/world/entity/Entity;)Z", at = @At("HEAD"), cancellable = true)
     private void pyrrlanta$twilightEgoGlow(Entity entity, CallbackInfoReturnable<Boolean> cir) {
