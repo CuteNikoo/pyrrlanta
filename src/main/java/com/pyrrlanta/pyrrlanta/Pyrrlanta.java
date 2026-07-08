@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import com.pyrrlanta.pyrrlanta.item.ModItems;
+import com.pyrrlanta.pyrrlanta.item.TwilightEgoSetEffects;
 import com.pyrrlanta.pyrrlanta.tribe.TribeCommand;
 import com.pyrrlanta.pyrrlanta.tribe.TribeConfig;
 import com.pyrrlanta.pyrrlanta.tribe.TribeFireGuard;
@@ -32,12 +34,16 @@ public class Pyrrlanta {
     // FML will recognize some parameter types like IEventBus or ModContainer and pass them in automatically.
     public Pyrrlanta(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(ModItems::addCreative);
+        ModItems.ITEMS.register(modEventBus);
+        ModItems.ARMOR_MATERIALS.register(modEventBus);
 
         NeoForge.EVENT_BUS.register(TribeCommand.class);
         NeoForge.EVENT_BUS.register(TribeProtectionEvents.class);
         NeoForge.EVENT_BUS.register(TribeMessageEvents.class);
         TribeFireGuard.init();
         TribeTaxCollector.init();
+        TwilightEgoSetEffects.init();
 
         modContainer.registerConfig(ModConfig.Type.COMMON, TribeConfig.SPEC);
 

@@ -1,2 +1,8 @@
 {
+  "item.pyrrlanta.twilight_ego_weapon": "Twilight E.G.O. Weapon",
+  "item.pyrrlanta.twilight_ego_helmet": "Twilight E.G.O. Helmet",
+  "item.pyrrlanta.twilight_ego_chestplate": "Twilight E.G.O. Chestplate",
+  "item.pyrrlanta.twilight_ego_leggings": "Twilight E.G.O. Leggings",
+  "item.pyrrlanta.twilight_ego_boots": "Twilight E.G.O. Boots",
+  "death.attack.twilight_ego_aura": "%1$s was consumed by the twilight"
 }
