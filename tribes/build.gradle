@@ -1,0 +1,62 @@
+// Tribe/land-claiming mod -- server-side only. Registers nothing into any game registry and
+// sends no custom network payloads, so unmodded clients can still connect to a server running
+// it (NeoForge negotiates compatibility on registries/payloads, not on a mod-list match).
+def modId = 'pyrrlanta_tribes'
+def modName = 'Pyrrlanta Tribes'
+
+base {
+    archivesName = modId
+}
+
+neoForge {
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', modId
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', modId
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${modId}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    // Soft dependency: only used to draw tribe claims on the map if the BlueMap mod is
+    // present on the server. compileOnly means it's available for compilation but is NOT
+    // bundled or required at runtime -- see TribeMapIntegration for the runtime presence check.
+    compileOnly 'de.bluecolored:bluemap-api:2.7.7'
+}
+
+// Expands the ${} properties in src/main/templates into the real neoforge.mods.toml.
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : modId,
+            mod_name               : modName,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
