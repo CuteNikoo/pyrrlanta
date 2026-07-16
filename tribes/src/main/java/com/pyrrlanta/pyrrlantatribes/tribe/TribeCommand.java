@@ -161,6 +161,9 @@ public final class TribeCommand {
                                 .executes(ctx -> adminClaim(ctx.getSource())))
                         .then(Commands.literal("unclaim")
                                 .executes(ctx -> adminUnclaim(ctx.getSource())))
+                        .then(Commands.literal("autoclaim")
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> adminAutoclaim(ctx.getSource(), BoolArgumentType.getBool(ctx, "value")))))
                         .then(Commands.literal("settier")
                                 .then(Commands.argument("tier", IntegerArgumentType.integer(1, 5))
                                         .executes(ctx -> adminSetTier(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "tier")))))
@@ -710,9 +713,19 @@ public final class TribeCommand {
             source.sendFailure(Component.literal("Only officers and the leader can use autoclaim (it spends tribe ore)."));
             return 0;
         }
-        TribeAutoClaim.setEnabled(player.getUUID(), value);
-        source.sendSuccess(() -> Component.literal("Autoclaim is now " + (value ? "ON" : "OFF")
-                + (value ? ". Walk into unclaimed, adjacent chunks to claim them automatically." : ".")), true);
+        // Turning tribe autoclaim off only disarms tribe autoclaim -- if admin autoclaim is
+        // what's actually armed, leave it alone rather than silently switching it off from a
+        // command that never mentions it.
+        boolean replacedAdmin = TribeAutoClaim.getMode(player.getUUID()) == TribeAutoClaim.Mode.ADMIN;
+        if (value) {
+            TribeAutoClaim.setMode(player.getUUID(), TribeAutoClaim.Mode.TRIBE);
+        } else if (!replacedAdmin) {
+            TribeAutoClaim.setMode(player.getUUID(), null);
+        }
+        source.sendSuccess(() -> Component.literal(value
+                ? "Autoclaim is now ON. Walk into unclaimed, adjacent chunks to claim them automatically."
+                        + (replacedAdmin ? " Admin autoclaim was switched off." : "")
+                : "Autoclaim is now OFF."), true);
         return 1;
     }
 
@@ -1002,6 +1015,27 @@ public final class TribeCommand {
         data.unclaim(owner, pos);
         source.sendSuccess(() -> Component.literal("Released admin land at chunk " + pos.chunk().x + ", "
                 + pos.chunk().z + "."), true);
+        return 1;
+    }
+
+    // Admin autoclaim: protect every unclaimed chunk you walk into as admin land, for shaping
+    // a protected region by walking it instead of running /tribe admin claim per chunk. The
+    // per-chunk work happens in TribeMessageEvents; this only arms the mode.
+    private static int adminAutoclaim(CommandSourceStack source, boolean value) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        // Symmetric to tribe autoclaim: "off" only disarms admin autoclaim, never someone
+        // else's mode that happens to be armed.
+        boolean replacedTribe = TribeAutoClaim.getMode(player.getUUID()) == TribeAutoClaim.Mode.TRIBE;
+        if (value) {
+            TribeAutoClaim.setMode(player.getUUID(), TribeAutoClaim.Mode.ADMIN);
+        } else if (!replacedTribe) {
+            TribeAutoClaim.setMode(player.getUUID(), null);
+        }
+        source.sendSuccess(() -> Component.literal(value
+                ? "Admin autoclaim is now ON. Every unclaimed chunk you walk into becomes Protected Land; "
+                        + "chunks owned by a player tribe are skipped."
+                        + (replacedTribe ? " Your tribe autoclaim was switched off." : "")
+                : "Admin autoclaim is now OFF."), true);
         return 1;
     }
 
