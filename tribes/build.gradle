@@ -38,7 +38,12 @@ dependencies {
     // Soft dependency: only used to draw tribe claims on the map if the BlueMap mod is
     // present on the server. compileOnly means it's available for compilation but is NOT
     // bundled or required at runtime -- see TribeMapIntegration for the runtime presence check.
-    compileOnly 'de.bluecolored:bluemap-api:2.7.7'
+    // Pinned to the API version shipped by the oldest BlueMap we support (BlueMap 5.7 targets
+    // BlueMapAPI 2.7.4). Compiling against the oldest rather than the newest makes the
+    // compiler enforce that we never call a method that server's BlueMap lacks -- otherwise a
+    // newer-API call only fails at runtime, as a NoSuchMethodError. Everything
+    // TribeMapIntegration uses long predates this.
+    compileOnly 'de.bluecolored:bluemap-api:2.7.4'
 }
 
 // Expands the ${} properties in src/main/templates into the real neoforge.mods.toml.
