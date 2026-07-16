@@ -7,3 +7,11 @@ pluginManagement {
 plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
+
+rootProject.name = 'pyrrlanta'
+
+// Two independent mods built from one repo:
+//   items  -> mod id "pyrrlanta"        (Twilight E.G.O. content; must be on client + server)
+//   tribes -> mod id "pyrrlanta_tribes" (tribe/land-claiming system; server only)
+include 'items'
+include 'tribes'

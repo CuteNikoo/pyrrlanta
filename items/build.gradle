@@ -1,0 +1,68 @@
+// Twilight E.G.O. content mod -- registers items/armor materials and a client-only mixin, so
+// it must be installed on both the client and the server. Keeps the original "pyrrlanta" mod
+// id so existing pyrrlanta:twilight_ego_* items in worlds/inventories stay valid.
+def modId = 'pyrrlanta'
+def modName = 'Pyrrlanta'
+
+base {
+    archivesName = modId
+}
+
+sourceSets.main.resources {
+    srcDir('src/generated/resources')
+    exclude("**/*.bbmodel")            // BlockBench project files
+    exclude("src/generated/**/.cache")  // datagen cache files
+}
+
+neoForge {
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', modId
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', modId
+        }
+
+        data {
+            data()
+            programArguments.addAll '--mod', modId, '--all',
+                    '--output', file('src/generated/resources/').getAbsolutePath(),
+                    '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${modId}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+// Expands the ${} properties in src/main/templates into the real neoforge.mods.toml.
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : modId,
+            mod_name               : modName,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata

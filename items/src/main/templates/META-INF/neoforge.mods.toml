@@ -1,0 +1,50 @@
+# Mod metadata for the Twilight E.G.O. content mod (mod id "pyrrlanta").
+# This mod registers items/armor materials and applies a client-only mixin, so it must be
+# installed on BOTH the client and the server. The server-only tribe system lives in the
+# separate "pyrrlanta_tribes" mod built from the tribes/ subproject.
+
+# The name of the mod loader type to load - for regular FML @Mod mods it should be javafml
+modLoader="javafml" #mandatory
+
+# A version range to match for said mod loader - for regular FML @Mod it will be the FML version. This is currently 2.
+loaderVersion="${loader_version_range}" #mandatory
+
+# The license for you mod. This is mandatory metadata and allows for easier comprehension of your redistributive properties.
+license="${mod_license}"
+
+[[mods]] #mandatory
+
+# The modid of the mod
+modId="${mod_id}" #mandatory
+
+# The version number of the mod
+version="${mod_version}" #mandatory
+
+# A display name for the mod
+displayName="${mod_name}" #mandatory
+
+# The description text for the mod (multi line!) (#mandatory)
+description='''
+Pyrrlanta - the Twilight E.G.O. weapon and armor set for Minecraft 1.21.1.
+Required on both the client and the server.
+'''
+
+# The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.
+# Contains the client-only helmet highlight mixin.
+[[mixins]]
+config="${mod_id}.mixins.json"
+
+# A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.
+[[dependencies.${mod_id}]] #optional
+    modId="neoforge" #mandatory
+    type="required" #mandatory
+    versionRange="[${neo_version},)" #mandatory
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"

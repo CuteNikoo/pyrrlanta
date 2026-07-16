@@ -1,8 +1,34 @@
 # Pyrrlanta
 
-A NeoForge mod for Minecraft 1.21.1. This is currently an empty skeleton — no
-blocks, items, or features yet — set up so multiple people can build on it
-together.
+NeoForge mods for Minecraft 1.21.1. This repo builds **two independent mods**
+from one codebase:
+
+| Subproject | Mod id | Jar | Install on |
+|---|---|---|---|
+| `items/` | `pyrrlanta` | `pyrrlanta-<version>.jar` | **Client *and* server** |
+| `tribes/` | `pyrrlanta_tribes` | `pyrrlanta_tribes-<version>.jar` | **Server only** |
+
+- **`items` (Pyrrlanta)** — the Twilight E.G.O. weapon and armor set. It
+  registers real content (items, armor materials) and applies a client-only
+  mixin for the helmet's highlight, so every player needs it installed; an
+  unmodded client cannot join a server running it.
+- **`tribes` (Pyrrlanta Tribes)** — the Towny-style tribe/land-claiming
+  system. It registers nothing into any game registry and sends no custom
+  network payloads, and its whole UI is built from vanilla screens driven
+  server-side. That means **unmodded clients can connect to a server running
+  it** — NeoForge decides compatibility by registry/payload negotiation, not
+  by matching mod lists, so no special "server only" flag exists or is needed
+  in `neoforge.mods.toml`. It also still works in singleplayer/LAN.
+
+The two mods are independent: neither requires the other, and you can run
+either one alone.
+
+> **Note on mod ids:** `items` intentionally keeps the original `pyrrlanta`
+> id. Its items are registered as `pyrrlanta:twilight_ego_*`, and any already
+> in a world or inventory would be destroyed if that namespace changed. The
+> tribe system registers nothing, so it was safe to give it a new id — and its
+> config file is pinned to the pre-split `pyrrlanta-common.toml` name so
+> existing tuned values carry over.
 
 ## Requirements
 
@@ -17,14 +43,17 @@ Clone the repo, then open it in your IDE as a Gradle project (or run the
 commands below from the repo root).
 
 ```bash
-# Run the game as a client, with the mod loaded
-./gradlew runClient
-
-# Run a dedicated server, with the mod loaded
-./gradlew runServer
-
-# Just build the mod jar (output in build/libs/)
+# Build both mods (jars land in items/build/libs/ and tribes/build/libs/)
 ./gradlew build
+
+# Run the game with a specific mod loaded — pick the subproject:
+./gradlew :items:runClient
+./gradlew :items:runServer
+./gradlew :tribes:runClient
+./gradlew :tribes:runServer
+
+# Build just one mod
+./gradlew :tribes:build
 ```
 
 On Windows use `gradlew.bat` instead of `./gradlew`.
@@ -38,14 +67,32 @@ If your IDE is missing dependencies or something looks stale, try:
 
 ## Project layout
 
-- `src/main/java/com/pyrrlanta/pyrrlanta/` — mod source code.
-  - `Pyrrlanta.java` — main mod entry point (common side).
-  - `PyrrlantaClient.java` — client-only setup.
-- `src/main/resources/assets/pyrrlanta/` — lang files, textures, models, etc.
-- `src/main/templates/META-INF/neoforge.mods.toml` — mod metadata, templated
-  from the properties in `gradle.properties`.
-- `gradle.properties` — mod id, name, version, and Minecraft/NeoForge
-  versions live here.
+```
+items/                                   # mod id "pyrrlanta" (client + server)
+  build.gradle                           # mod id, runs, datagen
+  src/main/java/com/pyrrlanta/pyrrlanta/
+    Pyrrlanta.java                       # @Mod entry point
+    PyrrlantaClient.java                 # client-only setup
+    item/                                # Twilight E.G.O. items
+    mixin/                               # client-only helmet highlight mixin
+  src/main/resources/                    # assets, data tags, mixins.json
+  src/main/templates/META-INF/neoforge.mods.toml
+
+tribes/                                  # mod id "pyrrlanta_tribes" (server only)
+  build.gradle                           # mod id, runs, BlueMap soft dep
+  src/main/java/com/pyrrlanta/pyrrlantatribes/
+    PyrrlantaTribes.java                 # @Mod entry point
+    tribe/                               # claims, commands, protection, GUI, tiers
+  src/main/templates/META-INF/neoforge.mods.toml
+
+build.gradle                             # shared config for both subprojects
+gradle.properties                        # Minecraft/NeoForge/Parchment versions, shared
+settings.gradle                          # declares the two subprojects
+```
+
+Each subproject defines its own `mod_id`/`mod_name` in its `build.gradle`;
+everything shared (Minecraft/NeoForge/Parchment versions, license, version)
+lives in the root `gradle.properties`.
 
 ## Contributing
 
