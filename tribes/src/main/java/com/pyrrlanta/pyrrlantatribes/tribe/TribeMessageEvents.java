@@ -70,16 +70,48 @@ public final class TribeMessageEvents {
         }
     }
 
-    // If the player has autoclaim on (/tribe autoclaim true), claims the chunk they just
-    // stepped into for their tribe -- as long as it's unclaimed, they're at least an
-    // officer, and (beyond the tribe's free founding claim) it's adjacent to existing
-    // territory and affordable. Skips silently on any of those failing rather than
-    // spamming messages while walking through the wilderness or after running out of ore;
-    // only successful auto-claims are announced.
+    // Claims the chunk the player just stepped into, if they have an autoclaim mode armed.
     private static void tryAutoClaim(ServerPlayer player, TribeSavedData data, ClaimPos pos) {
-        if (!TribeAutoClaim.isEnabled(player.getUUID())) {
+        TribeAutoClaim.Mode mode = TribeAutoClaim.getMode(player.getUUID());
+        if (mode == null) {
             return;
         }
+        if (mode == TribeAutoClaim.Mode.ADMIN) {
+            tryAdminAutoClaim(player, data, pos);
+        } else {
+            tryTribeAutoClaim(player, data, pos);
+        }
+    }
+
+    // Admin autoclaim (/tribe admin autoclaim true): protects every unclaimed chunk the
+    // operator walks into as server-owned "Protected Land". Free, no adjacency requirement
+    // and no claim limit, matching /tribe admin claim -- admin land is meant to be scattered
+    // and hand-shaped by walking the border of whatever is being protected.
+    private static void tryAdminAutoClaim(ServerPlayer player, TribeSavedData data, ClaimPos pos) {
+        // The armed mode outlives a /deop, so re-check permission on every chunk rather than
+        // trusting the check the command did when it was switched on.
+        if (!player.hasPermissions(2)) {
+            TribeAutoClaim.clear(player.getUUID());
+            player.displayClientMessage(Component.literal("Admin autoclaim off: you're no longer an operator."), true);
+            return;
+        }
+        // Skips chunks that already have an owner -- including player tribes, so an operator
+        // walking a border can't silently seize someone's land out from under them. Take those
+        // deliberately with /tribe admin claim, which explains who owns it and how to remove it.
+        if (data.getTribeAt(pos) != null) {
+            return;
+        }
+        data.claim(data.getOrCreateAdminTribe(), pos);
+        player.displayClientMessage(Component.literal("Protected chunk " + pos.chunk().x + ", " + pos.chunk().z
+                + " as admin land"), true);
+    }
+
+    // Tribe autoclaim (/tribe autoclaim true): claims the chunk for the player's tribe -- as
+    // long as it's unclaimed, they're at least an officer, and (beyond the tribe's free
+    // founding claim) it's adjacent to existing territory and affordable. Skips silently on
+    // any of those failing rather than spamming messages while walking through the wilderness
+    // or after running out of ore; only successful auto-claims are announced.
+    private static void tryTribeAutoClaim(ServerPlayer player, TribeSavedData data, ClaimPos pos) {
         Tribe tribe = data.getTribeOf(player.getUUID());
         if (tribe == null || !tribe.hasPermission(player.getUUID(), TribeRole.OFFICER)) {
             return;

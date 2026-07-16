@@ -65,7 +65,17 @@ public final class TribeMapIntegration {
             return;
         }
         tickCounter = 0;
-        BlueMapAPI.getInstance().ifPresent(api -> refreshAll(api, event.getServer()));
+        // refreshAll runs inside the server tick, so anything it throws propagates into
+        // tickServer and kills the server. These markers are purely cosmetic and are rebuilt
+        // from scratch every refresh, so a failed pass is worth a log line and nothing more --
+        // never worth taking the world down for.
+        BlueMapAPI.getInstance().ifPresent(api -> {
+            try {
+                refreshAll(api, event.getServer());
+            } catch (Exception e) {
+                PyrrlantaTribes.LOGGER.error("Tribe map marker refresh failed; skipping this pass", e);
+            }
+        });
     }
 
     private static void refreshAll(BlueMapAPI api, MinecraftServer server) {
@@ -130,9 +140,13 @@ public final class TribeMapIntegration {
                 }
             }
 
+            Shape outerShape = toShape(outer);
+            if (outerShape == null) {
+                continue;
+            }
             ShapeMarker.Builder markerBuilder = ShapeMarker.builder()
                     .label(tribe.getName())
-                    .shape(toShape(outer), MARKER_HEIGHT)
+                    .shape(outerShape, MARKER_HEIGHT)
                     .fillColor(fill)
                     .lineColor(line)
                     .lineWidth(2)
@@ -143,12 +157,15 @@ public final class TribeMapIntegration {
                     // it renders the outline above terrain unconditionally, which is what an
                     // informational territory overlay should do regardless of terrain height.
                     .depthTestEnabled(false);
-            if (!holes.isEmpty()) {
-                Shape[] holeShapes = new Shape[holes.size()];
-                for (int i = 0; i < holes.size(); i++) {
-                    holeShapes[i] = toShape(holes.get(i));
+            List<Shape> holeShapes = new ArrayList<>();
+            for (List<Vector2d> hole : holes) {
+                Shape holeShape = toShape(hole);
+                if (holeShape != null) {
+                    holeShapes.add(holeShape);
                 }
-                markerBuilder.holes(holeShapes);
+            }
+            if (!holeShapes.isEmpty()) {
+                markerBuilder.holes(holeShapes.toArray(new Shape[0]));
             }
             markerSet.getMarkers().put(tribe.getId() + "_region_" + regionIndex, markerBuilder.build());
 
@@ -211,10 +228,16 @@ public final class TribeMapIntegration {
     // each cell's 4 edges are walked clockwise, any edge shared with a same-region neighbor is
     // walked in the opposite direction by that neighbor and cancels out, leaving only the true
     // boundary edges, which are then chained start-to-end into loops. Produces one outer loop
-    // plus a loop for each fully-enclosed unclaimed pocket.
-    // Known limitation: a region connected only through a single-point diagonal pinch (a rare,
-    // contrived claim shape) could leave a boundary vertex with more than one candidate next
-    // edge; this picks one deterministically rather than fully disambiguating that case.
+    // plus a loop for each enclosed unclaimed pocket.
+    //
+    // Saddle vertices: where two claimed cells of the same region meet only corner-to-corner,
+    // a single boundary vertex has TWO outgoing edges. Keying edges by their start vertex in a
+    // plain Map would silently drop one of them and corrupt the chain into short, sometimes
+    // 2-point loops -- which Shape.builder().build() rejects ("A shape has to have at least 3
+    // points!"), previously taking the server down. This is not a contrived shape: skipping a
+    // single chunk while walking a perimeter and later closing the ring produces it. So edges
+    // are kept in a multimap and the saddle is resolved by continuing with the sharpest
+    // clockwise turn, which keeps each loop's interior consistently on its right.
     private static List<List<Vector2d>> traceBoundaryLoops(Set<ChunkPos> region) {
         Set<Edge> allEdges = new HashSet<>();
         for (ChunkPos c : region) {
@@ -232,10 +255,11 @@ public final class TribeMapIntegration {
             allEdges.add(new Edge(sw, nw));
         }
 
-        Map<Vector2d, Vector2d> boundary = new HashMap<>();
+        // Multimap rather than Map<Vector2d, Vector2d>: a saddle vertex has two outgoing edges.
+        Map<Vector2d, List<Vector2d>> boundary = new HashMap<>();
         for (Edge edge : allEdges) {
             if (!allEdges.contains(edge.reversed())) {
-                boundary.put(edge.from(), edge.to());
+                boundary.computeIfAbsent(edge.from(), k -> new ArrayList<>()).add(edge.to());
             }
         }
 
@@ -244,16 +268,63 @@ public final class TribeMapIntegration {
             Vector2d start = boundary.keySet().iterator().next();
             List<Vector2d> loop = new ArrayList<>();
             Vector2d current = start;
-            do {
+            Vector2d previous = null;
+            while (true) {
+                List<Vector2d> outgoing = boundary.get(current);
+                if (outgoing == null || outgoing.isEmpty()) {
+                    break;
+                }
+                Vector2d next = pickSharpestClockwise(previous, current, outgoing);
+                outgoing.remove(next);
+                if (outgoing.isEmpty()) {
+                    boundary.remove(current);
+                }
                 loop.add(current);
-                current = boundary.remove(current);
-            } while (current != null && !current.equals(start));
+                previous = current;
+                current = next;
+                if (current.equals(start)) {
+                    break;
+                }
+            }
             loops.add(loop);
         }
         return loops;
     }
 
+    // Picks which edge to follow out of a vertex. Only ever ambiguous at a saddle (two claimed
+    // cells meeting corner-to-corner). Cell edges are emitted clockwise with x running east and
+    // z south, so a loop's interior lies to the right of travel; continuing with the sharpest
+    // clockwise turn preserves that and keeps the two loops meeting at the saddle separate
+    // rather than merging them.
+    private static Vector2d pickSharpestClockwise(Vector2d previous, Vector2d current, List<Vector2d> outgoing) {
+        if (outgoing.size() == 1 || previous == null) {
+            return outgoing.get(0);
+        }
+        double inX = current.getX() - previous.getX();
+        double inZ = current.getY() - previous.getY();
+        Vector2d best = null;
+        double bestTurn = Double.NEGATIVE_INFINITY;
+        for (Vector2d candidate : outgoing) {
+            double outX = candidate.getX() - current.getX();
+            double outZ = candidate.getY() - current.getY();
+            double cross = inX * outZ - inZ * outX; // positive == clockwise turn
+            double dot = inX * outX + inZ * outZ;
+            double turn = Math.atan2(cross, dot);   // (-pi, pi]; larger == more clockwise
+            if (turn > bestTurn) {
+                bestTurn = turn;
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    // Returns null for a loop too short to be a polygon. The tracer shouldn't produce these any
+    // more, but BlueMap throws rather than ignoring a degenerate shape, so this stays as a
+    // cheap guarantee that a geometry edge case can never again escalate into a server crash.
     private static Shape toShape(List<Vector2d> loop) {
+        if (loop.size() < 3) {
+            return null;
+        }
         Shape.Builder builder = Shape.builder();
         for (Vector2d point : loop) {
             builder.addPoint(point);
