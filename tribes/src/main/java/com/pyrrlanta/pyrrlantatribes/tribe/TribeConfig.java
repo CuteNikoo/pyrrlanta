@@ -42,6 +42,12 @@ public class TribeConfig {
             .comment("How often taxes are collected, in ticks. Default is 24000 (one Minecraft day).")
             .defineInRange("taxIntervalTicks", 24000, 1200, Integer.MAX_VALUE);
 
+    public static final ModConfigSpec.BooleanValue TIER_SYSTEM_ENABLED = BUILDER
+            .comment("Master switch for the tribe tier system (tier passives, force-loading, tier-up "
+                    + "announcements). On by default. If false, no tier passives apply and force-loaded "
+                    + "chunks are not maintained.")
+            .define("tierSystemEnabled", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private TribeConfig() {
