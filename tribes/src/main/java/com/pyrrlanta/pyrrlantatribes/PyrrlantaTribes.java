@@ -6,11 +6,12 @@ import com.mojang.logging.LogUtils;
 
 import com.pyrrlanta.pyrrlantatribes.tribe.TribeCommand;
 import com.pyrrlanta.pyrrlantatribes.tribe.TribeConfig;
-import com.pyrrlanta.pyrrlantatribes.tribe.TribeFireGuard;
+import com.pyrrlanta.pyrrlantatribes.tribe.TribeForceLoad;
 import com.pyrrlanta.pyrrlantatribes.tribe.TribeMapIntegration;
 import com.pyrrlanta.pyrrlantatribes.tribe.TribeMessageEvents;
 import com.pyrrlanta.pyrrlantatribes.tribe.TribeProtectionEvents;
 import com.pyrrlanta.pyrrlantatribes.tribe.TribeTaxCollector;
+import com.pyrrlanta.pyrrlantatribes.tribe.TribeTierEffects;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -39,8 +40,9 @@ public class PyrrlantaTribes {
         NeoForge.EVENT_BUS.register(TribeCommand.class);
         NeoForge.EVENT_BUS.register(TribeProtectionEvents.class);
         NeoForge.EVENT_BUS.register(TribeMessageEvents.class);
-        TribeFireGuard.init();
         TribeTaxCollector.init();
+        TribeForceLoad.init();
+        TribeTierEffects.init();
 
         // Pinned to the pre-split filename rather than the mod id's default
         // ("pyrrlanta_tribes-common.toml") so servers upgrading from the combined mod keep

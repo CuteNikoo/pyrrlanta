@@ -35,6 +35,11 @@ Pyrrlanta Tribes - a Towny-style tribe and land-claiming system for Minecraft 1.
 Server-side only; unmodded clients can connect.
 '''
 
+# The [[mixins]] block declares the mixin config to FML so that it gets loaded.
+# Contains the server-side fire-spread guard (FireBlock#tick).
+[[mixins]]
+config="${mod_id}.mixins.json"
+
 # A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.
 [[dependencies.${mod_id}]] #optional
     modId="neoforge" #mandatory
