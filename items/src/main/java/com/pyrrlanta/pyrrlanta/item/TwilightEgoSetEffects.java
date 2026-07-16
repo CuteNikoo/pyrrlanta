@@ -24,8 +24,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import java.util.List;
 
 // Two independent Twilight E.G.O. armor perks, both driven by a throttled server tick check
-// (no clean per-equip-change event covers "is this full set currently worn", so this follows
-// the same periodic-scan pattern already used elsewhere in this mod, e.g. TribeFireGuard):
+// (no clean per-equip-change event covers "is this full set currently worn", so this scans
+// periodically instead):
 //
 // - Helmet alone: permanent Blindness I, in exchange for highlighting all nearby entities.
 //   This is the helmet's own trade-off, independent of the rest of the set. The highlight
