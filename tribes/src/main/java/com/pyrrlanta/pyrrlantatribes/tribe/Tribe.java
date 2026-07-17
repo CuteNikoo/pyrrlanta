@@ -45,7 +45,8 @@ public class Tribe {
     // only belong to one tribe, so if admins joined this one they'd lose their own. Build
     // rights on admin land therefore come from OP status rather than membership (see
     // TribeProtectionEvents.canModify). Claimed via /tribe admin claim; its toggles are fixed
-    // at creation and can't be changed by /tribe toggle, which requires membership.
+    // by applyAdminInvariants() and can't be changed by /tribe toggle, which requires
+    // membership.
     private boolean adminTribe = false;
 
     // Ore balance, funded via /tribe deposit, spent claiming land beyond the founding claim.
@@ -98,11 +99,26 @@ public class Tribe {
         // print it can't NPE; it never matches a real player.
         tribe.leader = new UUID(0L, 0L);
         tribe.adminTribe = true;
-        tribe.protectionEnabled = true;
-        tribe.chestProtectionEnabled = false;
-        tribe.fireSpreadBlocked = true;
-        tribe.color = ADMIN_LAND_COLOR;
+        tribe.applyAdminInvariants();
         return tribe;
+    }
+
+    // The single definition of what "Protected Land" is: block protection on, chests left
+    // usable, no natural hostile spawns, no fire spread.
+    //
+    // Applied on load as well as at creation. The admin tribe has no members, so /tribe toggle
+    // and /tribe set (both of which require membership) can never reach these -- there is no
+    // legitimate way for a saved admin tribe's values to differ. Re-asserting them on load is
+    // therefore self-healing rather than destructive: an admin tribe saved before a toggle
+    // joined this list picks it up on the next server start instead of keeping whatever NBT
+    // happened to hold, which is otherwise an easy way to ship a setting that silently does
+    // nothing on any world that already has admin land.
+    private void applyAdminInvariants() {
+        protectionEnabled = true;
+        chestProtectionEnabled = false;
+        mobSpawningBlocked = true;
+        fireSpreadBlocked = true;
+        color = ADMIN_LAND_COLOR;
     }
 
     private Tribe(UUID id) {
@@ -446,6 +462,11 @@ public class Tribe {
             tribe.homeZ = homeTag.getDouble("z");
             tribe.homeYaw = homeTag.getFloat("yaw");
             tribe.homePitch = homeTag.getFloat("pitch");
+        }
+
+        // Re-assert after every field has been read, so this wins over the persisted values.
+        if (tribe.adminTribe) {
+            tribe.applyAdminInvariants();
         }
 
         return tribe;
