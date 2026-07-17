@@ -999,7 +999,8 @@ public final class TribeCommand {
         Tribe adminTribe = data.getOrCreateAdminTribe();
         data.claim(adminTribe, pos);
         source.sendSuccess(() -> Component.literal("Protected chunk " + pos.chunk().x + ", " + pos.chunk().z
-                + " as admin land. Only operators can build here; chests stay usable and fire won't spread."), true);
+                + " as admin land. Only operators can build here; chests stay usable, and fire spread"
+                + " and natural hostile spawns are off."), true);
         return 1;
     }
 
